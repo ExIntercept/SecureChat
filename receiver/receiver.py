@@ -4,6 +4,18 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import requests
 from flask import Flask, request
+import logging
+
+print("""
+  ____  _____ ____ _____ _____     _______ ____  
+ |  _ \| ____/ ___| ____|_ _\ \   / / ____|  _ \ 
+ | |_) |  _|| |   |  _|  | | \ \ / /|  _| | |_) |
+ |  _ <| |__| |___| |___ | |  \ V / | |___|  _ < 
+ |_| \_\_____\____|_____|___|  \_/  |_____|_| \_\
+                                                 
+""")
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 # Directory paths
 keys_directory = "../keys"
@@ -60,9 +72,6 @@ def decrypt_rsa(encrypted_data):
         password=None
     )
     
-    # Print lengths for debugging
-    print(f"Length of encrypted data: {len(encrypted_data)}")
-    print(f"Key size: {private_key.key_size // 8}")
     
     try:
         decrypted_data = private_key.decrypt(
@@ -101,9 +110,10 @@ def receive_data_from_previous_server():
 
     @app.route('/receive', methods=['POST'])
     def receive():
+        url = "http://localhost:5001"
         encrypted_data = request.data
         decrypted_message = handle_received_data(encrypted_data)
-        print(f"Decrypted message: {decrypted_message.decode()}")
+        print(f"Sender: {decrypted_message.decode()}")
         return "Data received and processed.", 200
 
     if __name__ == "__main__":

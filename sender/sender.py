@@ -4,6 +4,19 @@ from cryptography.hazmat.primitives import serialization, hashes
 import os
 import requests
 
+# master_script.py
+
+
+
+
+print("""
+  ____  _____ _   _ ____  _____ ____  
+ / ___|| ____| \ | |  _ \| ____|  _ \ 
+ \___ \|  _| |  \| | | | |  _| | |_) |
+  ___) | |___| |\  | |_| | |___|  _ < 
+ |____/|_____|_| \_|____/|_____|_| \_\
+                                      
+""")
 # Generate private and public keys
 private_key = rsa.generate_private_key(
     public_exponent=65537,
@@ -42,19 +55,6 @@ with open(receiver_public_key_path, 'rb') as receiver_public_file:
 receiver_public_key = serialization.load_pem_public_key(receiver_public_pem)
 
 # Encrypt data with receiver public key
-data = b"Hi this is a message by Aryan."
-try:
-    encrypted_data = receiver_public_key.encrypt(
-        data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-except Exception as e:
-    print(f"Error encrypting data with receiver's public key: {e}")
-    raise
 
 # Triple AES encryption
 def generate_aes_key():
@@ -71,13 +71,7 @@ def encrypt_aes(data, key):
     encrypted_data = iv + encryptor.update(data) + encryptor.finalize()
     return encrypted_data
 
-try:
-    layer3_encrypted = encrypt_aes(encrypted_data, aes_key3)
-    layer2_encrypted = encrypt_aes(layer3_encrypted, aes_key2)
-    layer1_encrypted = encrypt_aes(layer2_encrypted, aes_key1)
-except Exception as e:
-    print(f"Error during AES encryption: {e}")
-    raise
+
 
 # Save AES keys
 def save_key(key, filename):
@@ -98,12 +92,39 @@ def send_data_to_server1(data):
     headers = {
         'Forward-To': 'http://localhost:5002/receive'  # Forward to server2
     }
-    print(f"Sending data to {url} with headers {headers}")
+
     try:
         response = requests.post(url, data=data, headers=headers)
-        print(f"Data sent to server1: {response.status_code}")
+        print("✓")
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
-print("Sender encrypted: ", layer1_encrypted)
+    
+data = b" "
+while(1):
+    data = input("You: ")
+    if data == "":
+        break
+    bdata = data.encode('utf-8')
 
-send_data_to_server1(layer1_encrypted)
+
+    try:
+        encrypted_data = receiver_public_key.encrypt(
+            bdata,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+    except Exception as e:
+        print(f"Error encrypting data with receiver's public key: {e}")
+        raise
+
+    try:
+        layer3_encrypted = encrypt_aes(encrypted_data, aes_key3)
+        layer2_encrypted = encrypt_aes(layer3_encrypted, aes_key2)
+        layer1_encrypted = encrypt_aes(layer2_encrypted, aes_key1)
+    except Exception as e:
+        print(f"Error during AES encryption: {e}")
+        raise
+    send_data_to_server1(layer1_encrypted)

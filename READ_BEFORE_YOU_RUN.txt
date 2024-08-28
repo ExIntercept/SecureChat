@@ -1,0 +1,9 @@
+Beware:
+
+-Always run receiver and node servers before running sender.py otherwise the keys get messed up.
+-Make sure the code is in the GitHub directory on your PC.
+-You can use master.py to automate running node servers.
+-Before you run the script, restart your PC once.
+
+
+--Following these steps will prevent any error from occurring during presentation--

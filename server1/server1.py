@@ -2,6 +2,11 @@ from flask import Flask, request
 import requests
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import logging
+
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 app = Flask(__name__)
 
