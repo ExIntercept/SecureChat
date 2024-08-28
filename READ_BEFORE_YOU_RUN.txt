@@ -4,6 +4,7 @@ Beware:
 -Make sure the code is in the GitHub directory on your PC.
 -You can use master.py to automate running node servers.
 -Before you run the script, restart your PC once.
+-Any data over 184 bytes will return error.
 
 
 --Following these steps will prevent any error from occurring during presentation--
