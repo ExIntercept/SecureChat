@@ -3,11 +3,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import serialization, hashes
 import os
 import requests
+import tkinter as tk
+from tkinter import scrolledtext, ttk, Toplevel
 
 # master_script.py
-
-
-
 
 print("""
   ____  _____ _   _ ____  _____ ____  
@@ -17,6 +16,7 @@ print("""
  |____/|_____|_| \_|____/|_____|_| \_\
                                       
 """)
+
 # Generate private and public keys
 private_key = rsa.generate_private_key(
     public_exponent=65537,
@@ -54,8 +54,6 @@ with open(receiver_public_key_path, 'rb') as receiver_public_file:
     receiver_public_pem = receiver_public_file.read()
 receiver_public_key = serialization.load_pem_public_key(receiver_public_pem)
 
-# Encrypt data with receiver public key
-
 # Triple AES encryption
 def generate_aes_key():
     return os.urandom(32)  # 256-bit AES key
@@ -70,8 +68,6 @@ def encrypt_aes(data, key):
     encryptor = cipher.encryptor()
     encrypted_data = iv + encryptor.update(data) + encryptor.finalize()
     return encrypted_data
-
-
 
 # Save AES keys
 def save_key(key, filename):
@@ -98,33 +94,111 @@ def send_data_to_server1(data):
         print("✓")
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
-    
-data = b" "
-while(1):
-    data = input("You: ")
-    if data == "":
-        break
-    bdata = data.encode('utf-8')
 
+# Tkinter UI
+class SenderApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Secure Chat - Sender")
+        self.root.geometry("600x400")
+        self.root.configure(bg="#f0f2f5")
 
-    try:
-        encrypted_data = receiver_public_key.encrypt(
-            bdata,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
+        # Style configuration
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure("TFrame", background="#f0f2f5")
+        style.configure("TButton", padding=6, relief="flat", background="#007bff", foreground="white", font=("Helvetica", 10))
+        style.map("TButton", background=[("active", "#0056b3")])
+        style.configure("TEntry", padding=5, fieldbackground="white", font=("Helvetica", 11))
+        style.configure("Chat.TFrame", background="white", borderwidth=2, relief="groove")
+
+        # Chat display area
+        chat_frame = ttk.Frame(self.root, style="Chat.TFrame")
+        chat_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.chat_area = scrolledtext.ScrolledText(
+            chat_frame, wrap=tk.WORD, height=15, font=("Helvetica", 11), bg="white", bd=0
         )
-    except Exception as e:
-        print(f"Error encrypting data with receiver's public key: {e}")
-        raise
+        self.chat_area.pack(padx=5, pady=5, fill=tk.BOTH, expand=True)
+        self.chat_area.configure(state='disabled')
 
-    try:
-        layer3_encrypted = encrypt_aes(encrypted_data, aes_key3)
-        layer2_encrypted = encrypt_aes(layer3_encrypted, aes_key2)
-        layer1_encrypted = encrypt_aes(layer2_encrypted, aes_key1)
-    except Exception as e:
-        print(f"Error during AES encryption: {e}")
-        raise
-    send_data_to_server1(layer1_encrypted)
+        # Input frame
+        self.input_frame = ttk.Frame(self.root, style="TFrame")
+        self.input_frame.pack(padx=10, pady=10, fill=tk.X)
+
+        # Emoji button
+        self.emoji_button = ttk.Button(self.input_frame, text="😊", width=4, command=self.open_emoji_picker)
+        self.emoji_button.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Message entry
+        self.message_entry = ttk.Entry(self.input_frame, font=("Helvetica", 11))
+        self.message_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.message_entry.bind("<Return>", self.send_message)
+
+        # Send button
+        self.send_button = ttk.Button(self.input_frame, text="Send", command=self.send_message)
+        self.send_button.pack(side=tk.RIGHT)
+
+    def open_emoji_picker(self):
+        emoji_window = Toplevel(self.root)
+        emoji_window.title("Select Emoji")
+        emoji_window.geometry("300x200")
+        emoji_window.configure(bg="#f0f2f5")
+
+        emojis = [
+            "😊", "😂", "😍", "😢", "😎", "😡", "👍", "👎",
+            "❤️", "🔥", "🎉", "🌟", "🍎", "🍕", "🚀", "🐱"
+        ]
+
+        frame = ttk.Frame(emoji_window, style="TFrame")
+        frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+        for i, emoji in enumerate(emojis):
+            btn = ttk.Button(
+                frame, text=emoji, width=4,
+                command=lambda e=emoji: self.insert_emoji(e, emoji_window)
+            )
+            btn.grid(row=i // 4, column=i % 4, padx=5, pady=5)
+
+    def insert_emoji(self, emoji, window):
+        self.message_entry.insert(tk.END, emoji)
+        window.destroy()
+
+    def send_message(self, event=None):
+        message = self.message_entry.get().strip()
+        if not message:
+            return
+
+        # Display sent message in chat area
+        self.chat_area.configure(state='normal')
+        self.chat_area.insert(tk.END, f"You: {message}\n")
+        self.chat_area.configure(state='disabled')
+        self.chat_area.see(tk.END)
+
+        # Clear input
+        self.message_entry.delete(0, tk.END)
+
+        # Encrypt and send message
+        try:
+            bdata = message.encode('utf-8')
+            encrypted_data = receiver_public_key.encrypt(
+                bdata,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            layer3_encrypted = encrypt_aes(encrypted_data, aes_key3)
+            layer2_encrypted = encrypt_aes(layer3_encrypted, aes_key2)
+            layer1_encrypted = encrypt_aes(layer2_encrypted, aes_key1)
+            send_data_to_server1(layer1_encrypted)
+        except Exception as e:
+            self.chat_area.configure(state='normal')
+            self.chat_area.insert(tk.END, f"Error: {e}\n")
+            self.chat_area.configure(state='disabled')
+            self.chat_area.see(tk.END)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SenderApp(root)
+    root.mainloop()

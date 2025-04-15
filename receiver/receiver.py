@@ -5,6 +5,9 @@ import os
 import requests
 from flask import Flask, request
 import logging
+import tkinter as tk
+from tkinter import scrolledtext, ttk
+import threading
 
 print("""
   ____  _____ ____ _____ _____     _______ ____  
@@ -72,7 +75,6 @@ def decrypt_rsa(encrypted_data):
         password=None
     )
     
-    
     try:
         decrypted_data = private_key.decrypt(
             encrypted_data,
@@ -87,11 +89,7 @@ def decrypt_rsa(encrypted_data):
         print(f"RSA decryption error: {e}")
         raise
 
-
 def handle_received_data(encrypted_data):
-    # Decrypt the AES layers
-
-    
     # Decrypt the RSA encrypted data
     decrypted_data = decrypt_rsa(encrypted_data)
     return decrypted_data
@@ -101,22 +99,66 @@ def load_key_from_file(filename):
         key = key_file.read()
     return key
 
+# Tkinter UI
+class ReceiverApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Secure Chat - Receiver")
+        self.root.geometry("600x400")
+        self.root.configure(bg="#f0f2f5")
+
+        # Style configuration
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure("TFrame", background="#f0f2f5")
+        style.configure("Chat.TFrame", background="white", borderwidth=2, relief="groove")
+
+        # Chat display area
+        chat_frame = ttk.Frame(self.root, style="Chat.TFrame")
+        chat_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.chat_area = scrolledtext.ScrolledText(
+            chat_frame, wrap=tk.WORD, height=15, font=("Helvetica", 11), bg="white", bd=0
+        )
+        self.chat_area.pack(padx=5, pady=5, fill=tk.BOTH, expand=True)
+        self.chat_area.configure(state='disabled')
+
+    def display_message(self, message):
+        self.chat_area.configure(state='normal')
+        self.chat_area.insert(tk.END, f"Sender: {message}\n")
+        self.chat_area.configure(state='disabled')
+        self.chat_area.see(tk.END)
+
+def run_flask_app(app, receiver_app):
+    app.run(host='0.0.0.0', port=5004, use_reloader=False)
+
 def receive_data_from_previous_server():
-    # Here, we assume the receiver is listening on port 5004
-    # Modify as needed to match your actual setup
-    
-    
     app = Flask(__name__)
+    receiver_app = None
 
     @app.route('/receive', methods=['POST'])
     def receive():
         url = "http://localhost:5001"
         encrypted_data = request.data
-        decrypted_message = handle_received_data(encrypted_data)
-        print(f"Sender: {decrypted_message.decode()}")
+        try:
+            decrypted_message = handle_received_data(encrypted_data)
+            message = decrypted_message.decode()
+            if receiver_app:
+                receiver_app.display_message(message)
+        except Exception as e:
+            if receiver_app:
+                receiver_app.display_message(f"Error: {e}")
+            return "Error processing data.", 500
         return "Data received and processed.", 200
 
-    if __name__ == "__main__":
-        app.run(host='0.0.0.0', port=5004)
+    # Create Tkinter UI
+    root = tk.Tk()
+    receiver_app = ReceiverApp(root)
+    
+    # Run Flask in a separate thread
+    flask_thread = threading.Thread(target=run_flask_app, args=(app, receiver_app), daemon=True)
+    flask_thread.start()
+    
+    root.mainloop()
 
-receive_data_from_previous_server()
+if __name__ == "__main__":
+    receive_data_from_previous_server()
